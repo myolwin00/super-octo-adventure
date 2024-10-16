@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -24,11 +22,18 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -38,13 +43,22 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.logbook.myolwinoo.unitconverter.R
+import kotlinx.coroutines.launch
 
 @Composable
 fun ConverterScreen(
     viewModel: ConverterViewModel = viewModel()
 ) {
+    val enableSaveBtn = viewModel.enableSaveBtn.collectAsStateWithLifecycle(false)
+    val histories = viewModel.histories.collectAsStateWithLifecycle(emptyList())
+
+    val showHistorySheet = rememberSaveable { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -52,9 +66,31 @@ fun ConverterScreen(
                 title = {
                     Text("Length Converter")
                 },
+                actions = {
+                    IconButton(onClick = {
+                        showHistorySheet.value = true
+                    }) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_history),
+                            contentDescription = "History button"
+                        )
+                    }
+                }
             )
+        },
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
         }
     ) { innerPadding ->
+
+        if (showHistorySheet.value) {
+            HistorySheet(
+                modifier = Modifier.padding(top = innerPadding.calculateTopPadding()),
+                histories = histories.value,
+                onDismiss = { showHistorySheet.value = false }
+            )
+        }
+
         Column(
             modifier = Modifier
                 .padding(
@@ -82,13 +118,32 @@ fun ConverterScreen(
                 onUnitChange = viewModel::onUnit2Changed
             )
 
-            Button(
+            Row(
                 modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
+                    .fillMaxWidth()
                     .padding(top = 20.dp),
-                onClick = viewModel::clear
+                horizontalArrangement = Arrangement.End
             ) {
-                Text(text = "Clear")
+                OutlinedButton(
+                    modifier = Modifier,
+                    onClick = viewModel::clear
+                ) {
+                    Text(text = "Clear")
+                }
+                Spacer(modifier = Modifier.size(8.dp))
+                Button(
+                    modifier = Modifier,
+                    enabled = enableSaveBtn.value,
+                    onClick = {
+                        viewModel.save()
+                        scope.launch {
+                            snackbarHostState.currentSnackbarData?.dismiss()
+                            snackbarHostState.showSnackbar("Saved!")
+                        }
+                    }
+                ) {
+                    Text(text = "Save")
+                }
             }
         }
     }
@@ -132,7 +187,8 @@ fun InputContainer(
             Input(
                 value = value,
                 onValueChange = onValueChange,
-                hint = hint
+                hint = hint,
+                unit = selectedUnit
             )
         }
     }
@@ -183,36 +239,47 @@ private fun Input(
     modifier: Modifier = Modifier,
     value: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
-    hint: String
+    hint: String,
+    unit: LengthUnit
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-    ) {
-        BasicTextField(
-            modifier = Modifier
-                .fillMaxWidth(),
-            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-            value = value,
-            onValueChange = onValueChange,
-            textStyle = MaterialTheme.typography.displayLarge
-                .copy(
-                    color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = TextAlign.End
+    Row {
+        Box(
+            modifier = modifier
+                .weight(1f)
+                .alignByBaseline()
+        ) {
+            BasicTextField(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                value = value,
+                onValueChange = onValueChange,
+                textStyle = MaterialTheme.typography.displayLarge
+                    .copy(
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.End
+                    ),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number
                 ),
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Number
             )
-        )
-        if (value.text.isEmpty()) {
-            Text(
-                modifier = Modifier.fillMaxWidth(),
-                text = hint,
-                style = MaterialTheme.typography.displayLarge,
-                color = Color.Gray,
-                textAlign = TextAlign.End
-            )
+            if (value.text.isEmpty()) {
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = hint,
+                    style = MaterialTheme.typography.displayLarge,
+                    color = Color.Gray,
+                    textAlign = TextAlign.End
+                )
+            }
         }
+//        Spacer(Modifier.size(4.dp))
+//        Text(
+//            modifier = Modifier.alignByBaseline(),
+//            text = unit.abbr,
+//            style = MaterialTheme.typography.displaySmall,
+//            color = MaterialTheme.colorScheme.onSurface
+//        )
     }
 }
 
