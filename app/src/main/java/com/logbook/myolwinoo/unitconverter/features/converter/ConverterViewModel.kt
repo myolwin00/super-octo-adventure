@@ -64,9 +64,9 @@ class ConverterViewModel: ViewModel() {
             it + ConversionResult(
                 id = UUID.randomUUID().toString(),
                 fromValue = input1.value.text,
-                fromUnit = unit1.value.name,
+                fromUnit = unit1.value,
                 toValue = input2.value.text,
-                toUnit = unit2.value.name,
+                toUnit = unit2.value,
                 timestamp = System.currentTimeMillis()
             )
         }

@@ -1,15 +1,16 @@
 package com.logbook.myolwinoo.unitconverter.data
 
 import android.text.format.DateUtils
+import com.logbook.myolwinoo.unitconverter.features.converter.LengthUnit
 
 data class ConversionResult(
     val id: String,
 
     val fromValue: String,
-    val fromUnit: String,
+    val fromUnit: LengthUnit,
 
     val toValue: String,
-    val toUnit: String,
+    val toUnit: LengthUnit,
 
     val timestamp: Long
 ) {
